@@ -59,7 +59,6 @@ import javax.servlet.ServletException;
 import org.glassfish.soteria.cdi.CdiExtension;
 import org.glassfish.soteria.cdi.spi.CDIPerRequestInitializer;
 import org.glassfish.soteria.cdi.spi.impl.LibertyCDIPerRequestInitializer;
-import org.glassfish.soteria.mechanisms.jaspic.ContextAuthenticationMechanismMapping;
 import org.glassfish.soteria.mechanisms.jaspic.HttpBridgeServerAuthModule;
 import org.glassfish.soteria.mechanisms.jaspic.Jaspic;
 
@@ -123,9 +122,6 @@ public class SamRegistrationInstaller implements ServletContainerInitializer, Se
             
             registerServerAuthModule(new HttpBridgeServerAuthModule(cdiPerRequestInitializer), ctx);
 
-            // register HTTPAuthenticationMechanism for this Web application (if any specific configuration is made)
-            ContextAuthenticationMechanismMapping.getInstance().registerAuthenticationMechanism(ctx);
-          
             // Add a listener so we can process the context destroyed event, which is needed
             // to de-register the SAM correctly.
             ctx.addListener(this);

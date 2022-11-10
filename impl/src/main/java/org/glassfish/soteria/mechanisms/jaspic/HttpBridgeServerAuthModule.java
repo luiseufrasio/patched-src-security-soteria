@@ -135,7 +135,7 @@ public class HttpBridgeServerAuthModule implements ServerAuthModule {
 
             // Define which HttpAuthenticationMechanism we need to look for
             HttpServletRequest request = msgContext.getRequest();
-            String mechanism = ContextAuthenticationMechanismMapping.getInstance().getMechanism(request);
+            String mechanism = getMechanism(request);
 
             Class<?> mechanismClassName;
             try {
@@ -171,7 +171,7 @@ public class HttpBridgeServerAuthModule implements ServerAuthModule {
 
             // Define which HttpAuthenticationMechanism we need to look for
             HttpServletRequest request = msgContext.getRequest();
-            String mechanism = ContextAuthenticationMechanismMapping.getInstance().getMechanism(request);
+            String mechanism = getMechanism(request);
 
             Class<?> mechanismClassName;
             try {
@@ -239,6 +239,10 @@ public class HttpBridgeServerAuthModule implements ServerAuthModule {
             }
         }
         return result;
+    }
+
+    private String getMechanism(HttpServletRequest request) {
+        return request.getServletContext().getInitParameter("fish.payara.security.mechanism");
     }
 
 }
