@@ -63,8 +63,8 @@
 
     <dependencies>
         <dependency>
-            <groupId>javax.security.enterprise</groupId>
-            <artifactId>javax.security.enterprise-api</artifactId>
+            <groupId>jakarta.security.enterprise</groupId>
+            <artifactId>jakarta.security.enterprise-api</artifactId>
             <version>${api_dependency_version}</version>
         </dependency>
         <dependency>

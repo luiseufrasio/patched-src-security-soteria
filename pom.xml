@@ -107,7 +107,7 @@
             <id>release</id>
             <properties>
                 <spec_build>01</spec_build>
-                <spec_impl_version>1.0</spec_impl_version>
+                <spec_impl_version>1.0.2</spec_impl_version>
             </properties>
         </profile>
         <profile>
