@@ -29,7 +29,7 @@
 
     <groupId>org.glassfish.soteria</groupId>
     <artifactId>parent</artifactId>
-    <version>3.0.2-SNAPSHOT</version>
+    <version>3.0.1.payara-p1</version>
     <packaging>pom</packaging>
 
     <description>Security Soteria - the Reference Implementation of JSR 375</description>
@@ -67,7 +67,7 @@
         <connection>scm:git:https://github.com/eclipse-ee4j/soteria.git</connection>
         <developerConnection>scm:git:https://github.com/eclipse-ee4j/soteria.git</developerConnection>
         <url>https://github.com/eclipse-ee4j/soteria</url>
-        <tag>HEAD</tag>
+        <tag>3.0.1.payara-p1</tag>
     </scm>
 
     <properties>
