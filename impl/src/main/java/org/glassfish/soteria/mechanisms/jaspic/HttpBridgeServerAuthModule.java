@@ -49,13 +49,24 @@ import org.glassfish.soteria.mechanisms.FormAuthenticationMechanism;
 import org.glassfish.soteria.mechanisms.HttpMessageContextImpl;
 
 /**
+ * This class realizes EE Security by providing JASPIC Authentication Module that delegates
+ * to AuthenticationMechanism.
+ *
+ * In order to support multiple mechanisms in an EAR application, Payara adds additional feature:
+ * The class of mechanism can be specified in Servlet Context's parameter {@value #SECURITY_MECHANISM_PARAMETER}.
+ * Values can be also one of predefined constants for authentication mechansim provided by Payara, such as
+ * {@code Basic} for Basic auth, {@code JWT} for MicroProfile JWT, {@code OIDC} for Payara's OpenID Connect or
+ * {@code JakartaOIDC} for EE Security's OpenID Connect.
  *
  * @author Arjan Tijms
  * @author Patrik Dudits
+ * @see <a href="https://docs.payara.fish/community/docs/Technical%20Documentation/Payara%20Server%20Documentation/Server%20Configuration%20And%20Management/Security%20Configuration/Multiple%20Mechanism%20in%20EAR.html">Multiple Auth Mechanisms docs</a>
  */
 public class HttpBridgeServerAuthModule implements ServerAuthModule {
 
     private final static Map<String, String> mappings = new HashMap<>();
+
+    public static final String SECURITY_MECHANISM_PARAMETER = "fish.payara.security.mechanism";
 
     static {
         mappings.put("Basic", BasicAuthenticationMechanism.class.getName());
@@ -135,7 +146,7 @@ public class HttpBridgeServerAuthModule implements ServerAuthModule {
     }
 
     private String getMechanismName(HttpServletRequest request) {
-        return request.getServletContext().getInitParameter("fish.payara.security.mechanism");
+        return request.getServletContext().getInitParameter(SECURITY_MECHANISM_PARAMETER);
     }
 
     /**

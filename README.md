@@ -40,6 +40,9 @@ Testing against any of these is done by activating the maven profile with the sa
 Testing against glassfish (which provides soteria integration):
 ``mvn clean verify -Pglassfish,provided``
 
+Testing against running Payara instance
+``mvn verify -Ptest,payara-remote,provided``
+
 Compatibility
 -------------
 
