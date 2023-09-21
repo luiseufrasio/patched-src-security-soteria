@@ -44,9 +44,7 @@ package org.glassfish.soteria.mechanisms.jaspic;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.logging.Logger;
 
-import javax.enterprise.inject.spi.CDI;
 import javax.security.auth.Subject;
 import javax.security.auth.callback.CallbackHandler;
 import javax.security.auth.message.AuthException;
@@ -70,6 +68,7 @@ import org.glassfish.soteria.mechanisms.HttpMessageContextImpl;
 
 import static javax.security.enterprise.AuthenticationStatus.NOT_DONE;
 import static javax.security.enterprise.AuthenticationStatus.SEND_FAILURE;
+import org.glassfish.soteria.cdi.CdiUtils;
 import static org.glassfish.soteria.mechanisms.jaspic.Jaspic.fromAuthenticationStatus;
 import static org.glassfish.soteria.mechanisms.jaspic.Jaspic.setLastAuthenticationStatus;
 
@@ -154,7 +153,7 @@ public class HttpBridgeServerAuthModule implements ServerAuthModule {
     private HttpAuthenticationMechanism getMechanism(HttpMessageContext ctx) throws AuthException {
         String mechanism = getMechanismName(ctx.getRequest());
         Class<? extends HttpAuthenticationMechanism> mechanismClass = findMechanismClass(mechanism);
-        return CDI.current().select(mechanismClass).get();
+        return CdiUtils.getBeanReference(mechanismClass); // CDI.current() is in context of HttpBridgeServerAuthModule, not the app itself!
     }
 
     private String getMechanismName(HttpServletRequest request) {
