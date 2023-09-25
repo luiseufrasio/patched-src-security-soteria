@@ -51,7 +51,7 @@
 
     <groupId>org.glassfish.soteria</groupId>
     <artifactId>parent</artifactId>
-    <version>1.1-b01.payara-p6-SNAPSHOT</version>
+    <version>1.1-b01.payara-p6</version>
     <packaging>pom</packaging>
 
     <inceptionYear>2015</inceptionYear>
