@@ -47,12 +47,11 @@
     <parent>
        <groupId>org.glassfish.soteria</groupId>
        <artifactId>parent</artifactId>
-       <version>1.1-b01.payara-p5</version>
+       <version>1.1-b01.payara-p6</version>
     </parent>
 
     <groupId>org.glassfish.soteria.test</groupId>
     <artifactId>parent</artifactId>
-    <version>1.1-b01-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>Soteria Integration Tests and Examples</name>
@@ -218,7 +217,7 @@
                 <dependency>
                     <groupId>org.glassfish.soteria</groupId>
                     <artifactId>javax.security.enterprise</artifactId>
-                    <version>1.1-b01-SNAPSHOT</version>
+                    <version>1.1-b01.payara-p6</version>
                 </dependency>
             </dependencies>
         </profile> 
