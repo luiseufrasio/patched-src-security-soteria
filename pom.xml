@@ -29,7 +29,7 @@
 
     <groupId>org.glassfish.soteria</groupId>
     <artifactId>parent</artifactId>
-    <version>3.0.4-SNAPSHOT</version>
+    <version>3.0.3.payara-p1</version>
     <packaging>pom</packaging>
 
     <description>Compatible Implementation for Jakarta Security API</description>
