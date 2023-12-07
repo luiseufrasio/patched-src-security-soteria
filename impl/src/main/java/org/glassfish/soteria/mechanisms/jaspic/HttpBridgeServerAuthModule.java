@@ -13,6 +13,7 @@
  *
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  */
+// Portions Copyright (c) 2022 Pyara Foundation and/or its affiliates
 
 package org.glassfish.soteria.mechanisms.jaspic;
 
@@ -21,7 +22,9 @@ import static jakarta.security.enterprise.AuthenticationStatus.SEND_FAILURE;
 import static org.glassfish.soteria.mechanisms.jaspic.Jaspic.fromAuthenticationStatus;
 import static org.glassfish.soteria.mechanisms.jaspic.Jaspic.setLastAuthenticationStatus;
 
+import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.security.auth.Subject;
 import javax.security.auth.callback.CallbackHandler;
@@ -40,28 +43,60 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import org.glassfish.soteria.cdi.CdiUtils;
 import org.glassfish.soteria.cdi.spi.CDIPerRequestInitializer;
+import org.glassfish.soteria.mechanisms.BasicAuthenticationMechanism;
+import org.glassfish.soteria.mechanisms.CustomFormAuthenticationMechanism;
+import org.glassfish.soteria.mechanisms.FormAuthenticationMechanism;
 import org.glassfish.soteria.mechanisms.HttpMessageContextImpl;
 
 /**
+ * This class realizes EE Security by providing JASPIC Authentication Module that delegates
+ * to AuthenticationMechanism.
+ *
+ * In order to support multiple mechanisms in an EAR application, Payara adds additional feature:
+ * The class of mechanism can be specified in Servlet Context's parameter {@value #SECURITY_MECHANISM_PARAMETER}.
+ * Values can be also one of predefined constants for authentication mechansim provided by Payara, such as
+ * {@code Basic} for Basic auth, {@code JWT} for MicroProfile JWT, {@code OIDC} for Payara's OpenID Connect or
+ * {@code JakartaOIDC} for EE Security's OpenID Connect.
  *
  * @author Arjan Tijms
- *
+ * @author Patrik Dudits
+ * @see <a href="https://docs.payara.fish/community/docs/Technical%20Documentation/Payara%20Server%20Documentation/Server%20Configuration%20And%20Management/Security%20Configuration/Multiple%20Mechanism%20in%20EAR.html">Multiple Auth Mechanisms docs</a>
  */
 public class HttpBridgeServerAuthModule implements ServerAuthModule {
 
-        private CallbackHandler handler;
-        private final Class<?>[] supportedMessageTypes = new Class[] { HttpServletRequest.class, HttpServletResponse.class };
-        private final CDIPerRequestInitializer cdiPerRequestInitializer;
-        
-        public HttpBridgeServerAuthModule(CDIPerRequestInitializer cdiPerRequestInitializer) {
-            this.cdiPerRequestInitializer = cdiPerRequestInitializer;
-        }
-        
-        @Override
-        public void initialize(MessagePolicy requestPolicy, MessagePolicy responsePolicy, CallbackHandler handler, @SuppressWarnings("rawtypes") Map options) throws AuthException {
-            this.handler = handler;
-            // options not supported.
-        }
+    private final static Map<String, String> mappings = new HashMap<>();
+
+    public static final String SECURITY_MECHANISM_PARAMETER = "fish.payara.security.mechanism";
+
+    static {
+        mappings.put("Basic", BasicAuthenticationMechanism.class.getName());
+        mappings.put("Form", FormAuthenticationMechanism.class.getName());
+        mappings.put("CustomForm", CustomFormAuthenticationMechanism.class.getName());
+        mappings.put("JWT", "fish.payara.microprofile.jwtauth.eesecurity.JWTAuthenticationMechanism");
+        mappings.put("Certificate", "fish.payara.security.realm.mechanisms.CertificateAuthenticationMechanism");
+        mappings.put("OAuth2", "fish.payara.security.oauth2.OAuth2AuthenticationMechanism");
+        mappings.put("OIDC", "fish.payara.security.openid.OpenIdAuthenticationMechanism");
+        mappings.put("JakartaOIDC", "org.glassfish.soteria.mechanisms.OpenIdAuthenticationMechanism");
+        mappings.put("TwoIdentityStore", "fish.payara.security.authentication.twoIdentityStore.TwoIdentityStoreAuthenticationMechanism");
+    }
+
+    private final Class<?>[] supportedMessageTypes = new Class[]{HttpServletRequest.class, HttpServletResponse.class};
+
+    private final CDIPerRequestInitializer cdiPerRequestInitializer;
+
+    private final Map<String, Class<? extends HttpAuthenticationMechanism>> mechanismClassCache = new ConcurrentHashMap<>(3);
+
+    private CallbackHandler handler;
+
+    public HttpBridgeServerAuthModule(CDIPerRequestInitializer cdiPerRequestInitializer) {
+        this.cdiPerRequestInitializer = cdiPerRequestInitializer;
+    }
+
+    @Override
+    public void initialize(MessagePolicy requestPolicy, MessagePolicy responsePolicy, CallbackHandler handler, @SuppressWarnings("rawtypes") Map options) throws AuthException {
+        this.handler = handler;
+        // options not supported.
+    }
 
         /**
          * A Servlet Container Profile compliant implementation should return HttpServletRequest and HttpServletResponse, so
@@ -85,7 +120,8 @@ public class HttpBridgeServerAuthModule implements ServerAuthModule {
             setLastAuthenticationStatus(msgContext.getRequest(), status);
                 
             try {
-                status = CdiUtils.getBeanReference(HttpAuthenticationMechanism.class)
+                HttpAuthenticationMechanism mechanismInstance = getMechanism(msgContext);
+                status = mechanismInstance
                             .validateRequest(
                                 msgContext.getRequest(), 
                                 msgContext.getResponse(), 
@@ -103,41 +139,83 @@ public class HttpBridgeServerAuthModule implements ServerAuthModule {
             return fromAuthenticationStatus(status);
         }
 
-        @Override
-        public AuthStatus secureResponse(MessageInfo messageInfo, Subject serviceSubject) throws AuthException {
-            HttpMessageContext msgContext = new HttpMessageContextImpl(handler, messageInfo, null);
+    private HttpAuthenticationMechanism getMechanism(HttpMessageContext ctx) throws AuthException {
+        String mechanism = getMechanismName(ctx.getRequest());
+        Class<? extends HttpAuthenticationMechanism> mechanismClass = findMechanismClass(mechanism);
+        return CdiUtils.getBeanReference(mechanismClass);
+    }
 
-            try {
-                AuthenticationStatus status = CdiUtils.getBeanReference(HttpAuthenticationMechanism.class)
-                                                 .secureResponse(
-                                                     msgContext.getRequest(), 
-                                                     msgContext.getResponse(), 
-                                                     msgContext);
-                AuthStatus authStatus = fromAuthenticationStatus(status);
-                if (authStatus == AuthStatus.SUCCESS) {
-                    return AuthStatus.SEND_SUCCESS;
-                }
-                return authStatus;
-            } catch (AuthenticationException e) {
-                throw (AuthException) new AuthException("Secure response failure in HttpAuthenticationMechanism").initCause(e);
-            } finally {
-                if (cdiPerRequestInitializer != null) {
-                    cdiPerRequestInitializer.destroy(msgContext.getRequest());
-                }
+    private String getMechanismName(HttpServletRequest request) {
+        return request.getServletContext().getInitParameter(SECURITY_MECHANISM_PARAMETER);
+    }
+
+    /**
+     * Define the HttpAuthenticationMechanism to use. based on the 'fish.payara.security.mechanism' context parameter if specified.
+     *
+     * @param mechanism
+     * @return
+     * @throws ClassNotFoundException
+     */
+    private Class<? extends HttpAuthenticationMechanism> findMechanismClass(String mechanism) throws AuthException {
+        if (mechanism == null) {
+            return HttpAuthenticationMechanism.class;
+        }
+        String mappedName = mappings.getOrDefault(mechanism, mechanism);
+        try {
+            return mechanismClassCache.computeIfAbsent(mappedName, this::loadMechanismClass);
+        } catch (RuntimeException e) {
+            throw new AuthException(e.getMessage());
+        }
+
+    }
+
+    private Class<? extends HttpAuthenticationMechanism> loadMechanismClass(String mechanism) {
+        try {
+            Class<?> mechanismClass = Thread.currentThread().getContextClassLoader().loadClass(mechanism);
+            if (HttpAuthenticationMechanism.class.isAssignableFrom(mechanismClass)) {
+                return (Class<? extends HttpAuthenticationMechanism>) mechanismClass;
+            } else {
+                throw new IllegalArgumentException("Provided authentication class does not implement HttpAuthentication Mechanism: " + mechanism);
             }
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException("HTTP Authentication mechanism class not found " + e.getMessage());
+        }
+    }
 
+    @Override
+    public AuthStatus secureResponse(MessageInfo messageInfo, Subject serviceSubject) throws AuthException {
+        HttpMessageContext msgContext = new HttpMessageContextImpl(handler, messageInfo, null);
+
+        try {
+            HttpAuthenticationMechanism mechanismInstance = getMechanism(msgContext);
+            AuthenticationStatus status = mechanismInstance
+                    .secureResponse(
+                            msgContext.getRequest(),
+                            msgContext.getResponse(),
+                            msgContext);
+            AuthStatus authStatus = fromAuthenticationStatus(status);
+            if (authStatus == AuthStatus.SUCCESS) {
+                return AuthStatus.SEND_SUCCESS;
+            }
+            return authStatus;
+        } catch (AuthenticationException e) {
+            throw (AuthException) new AuthException("Secure response failure in HttpAuthenticationMechanism").initCause(e);
+        } finally {
+            if (cdiPerRequestInitializer != null) {
+                cdiPerRequestInitializer.destroy(msgContext.getRequest());
+            }
         }
 
-        /**
-         * Called in response to a {@link HttpServletRequest#logout()} call.
-         *
-         */
-        @Override
-        public void cleanSubject(MessageInfo messageInfo, Subject subject) throws AuthException {
-            HttpMessageContext msgContext = new HttpMessageContextImpl(handler, messageInfo, subject);
-            
-            CdiUtils.getBeanReference(HttpAuthenticationMechanism.class)
-               .cleanSubject(msgContext.getRequest(), msgContext.getResponse(), msgContext);
-        }
+    }
+
+    /**
+     * Called in response to a {@link HttpServletRequest#logout()} call.
+     */
+    @Override
+    public void cleanSubject(MessageInfo messageInfo, Subject subject) throws AuthException {
+        HttpMessageContext msgContext = new HttpMessageContextImpl(handler, messageInfo, subject);
+
+        getMechanism(msgContext).cleanSubject(msgContext.getRequest(), msgContext.getResponse(), msgContext);
+    }
 
 }
