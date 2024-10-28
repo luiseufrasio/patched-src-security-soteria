@@ -22,15 +22,12 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.eclipse.ee4j</groupId>
-        <artifactId>project</artifactId>
-        <version>1.0.9</version>
-        <relativePath/>
+        <groupId>org.glassfish.soteria</groupId>
+        <artifactId>parent</artifactId>
+        <version>4.0.0.payara-p1</version>
     </parent>
 
-    <groupId>org.glassfish.soteria</groupId>
-    <artifactId>soteria</artifactId>
-    <version>4.0.0.payara-p1</version>
+    <artifactId>jakarta.security.enterprise</artifactId>
 
     <name>Soteria ${project.version}</name>
     <description>Compatible Implementation for Jakarta Security API</description>
